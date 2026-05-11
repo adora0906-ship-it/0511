@@ -1,6 +1,9 @@
 let capture;
+let faceMesh;
+let faces = [];
 let earringImages = [];
 let currentEarringIndex = 0; // 預設顯示第一款
+let isFaceModelReady = false;
 
 function modelReady() {
   console.log("AI Model Ready!");
@@ -25,6 +28,17 @@ function setup() {
   
   // 隱藏預設的 HTML 影片元件，只在畫布上繪製
   capture.hide();
+
+  // 初始化 faceMesh 模型
+  faceMesh = ml5.faceMesh(capture, () => {
+    isFaceModelReady = true;
+    modelReady();
+  });
+
+  // 開始持續偵測臉部
+  faceMesh.detectStart(capture, (results) => {
+    faces = results;
+  });
 }
 
 function draw() {
@@ -46,6 +60,29 @@ function draw() {
   translate(displayX + displayWidth, displayY);
   scale(-1, 1); // 水平翻轉
   image(capture, 0, 0, displayWidth, displayHeight);
+
+  // --- 繪製耳垂部分的黃色圓圈 ---
+  if (isFaceModelReady && faces.length > 0) {
+    let face = faces[0];
+    
+    // 計算縮放比例，將 AI 偵測的座標對應到目前 50% 的影像框大小
+    let scaleX = displayWidth / capture.width;
+    let scaleY = displayHeight / capture.height;
+
+    // 取得左右耳垂附近的主要特徵點 (FaceMesh 索引)
+    // 左耳垂區域: 234, 右耳垂區域: 454
+    let leftEar = face.keypoints[234];
+    let rightEar = face.keypoints[454];
+
+    // 設定黃色填充
+    fill(255, 255, 0); 
+    noStroke();
+
+    // 在座標點畫出圓圈 (大小設為 10 像素)
+    circle(leftEar.x * scaleX, leftEar.y * scaleY, 10);
+    circle(rightEar.x * scaleX, rightEar.y * scaleY, 10);
+  }
+
   pop();
 }
 
