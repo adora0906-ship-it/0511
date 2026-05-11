@@ -29,8 +29,8 @@ function setup() {
   // 隱藏預設的 HTML 影片元件，只在畫布上繪製
   capture.hide();
 
-  // 初始化 faceMesh 模型
-  faceMesh = ml5.faceMesh(capture, () => {
+  // 初始化 faceMesh 模型 (修正語法：最新版第一個參數通常為空或設定物件)
+  faceMesh = ml5.faceMesh(() => {
     isFaceModelReady = true;
     modelReady();
   });
@@ -61,26 +61,37 @@ function draw() {
   scale(-1, 1); // 水平翻轉
   image(capture, 0, 0, displayWidth, displayHeight);
 
+  // --- 除錯與狀態顯示 (幫助檢查為什麼沒東西) ---
+  pop(); // 暫時跳出翻轉座標系以繪製一般文字
+  fill(0);
+  noStroke();
+  textSize(16);
+  let status = isFaceModelReady ? `模型已就緒 | 偵測人臉數: ${faces.length}` : "模型載入中...";
+  text(status, 20, 20);
+  push(); // 回到翻轉座標系
+  translate(displayX + displayWidth, displayY);
+  scale(-1, 1);
+
   // --- 繪製耳垂部分的黃色圓圈 ---
   if (isFaceModelReady && faces.length > 0) {
     let face = faces[0];
     
-    // 計算縮放比例，將 AI 偵測的座標對應到目前 50% 的影像框大小
-    let scaleX = displayWidth / capture.width;
-    let scaleY = displayHeight / capture.height;
-
-    // 取得左右耳垂附近的主要特徵點 (FaceMesh 索引)
-    // 左耳垂區域: 234, 右耳垂區域: 454
+    // 取得左右耳垂附近的主要特徵點
+    // 確保點位存在才繪製，防止 undefined 報錯
     let leftEar = face.keypoints[234];
     let rightEar = face.keypoints[454];
 
-    // 設定黃色填充
-    fill(255, 255, 0); 
-    noStroke();
+    if (leftEar && rightEar) {
+      // 計算縮放比例
+      let scaleX = displayWidth / capture.width;
+      let scaleY = displayHeight / capture.height;
 
-    // 在座標點畫出圓圈 (大小設為 10 像素)
-    circle(leftEar.x * scaleX, leftEar.y * scaleY, 10);
-    circle(rightEar.x * scaleX, rightEar.y * scaleY, 10);
+      fill(255, 255, 0); 
+      noStroke();
+
+      circle(leftEar.x * scaleX, leftEar.y * scaleY, 15);
+      circle(rightEar.x * scaleX, rightEar.y * scaleY, 15);
+    }
   }
 
   pop();
