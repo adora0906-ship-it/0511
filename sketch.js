@@ -1,113 +1,101 @@
-let capture;
-let faceMesh;
-let faces = [];
+let video;
+let bodyPose;
+let handPose;
+let poses = [];
+let hands = [];
 let earringImages = [];
-let currentEarringIndex = 0; // 預設顯示第一款
-let isFaceModelReady = false;
-
-function modelReady() {
-  console.log("AI Model Ready!");
-}
+let currentEarring;
 
 function preload() {
-  // 預載 5 種耳環圖片
+  // 載入 ml5.js 的 bodyPose 模型
+  bodyPose = ml5.bodyPose();
+  // 載入 ml5.js 的 handPose 模型
+  handPose = ml5.handPose();
+  
+  // 載入所有耳環圖片
   earringImages[0] = loadImage('pic/acc1_ring.png');
   earringImages[1] = loadImage('pic/acc2_pearl.png');
   earringImages[2] = loadImage('pic/acc3_tassel.png');
   earringImages[3] = loadImage('pic/acc4_jade.png');
   earringImages[4] = loadImage('pic/acc5_phoenix.png');
+  
+  // 預設顯示第一個耳環
+  currentEarring = earringImages[0];
 }
 
 function setup() {
-  // 建立全螢幕畫布
-  createCanvas(windowWidth, windowHeight);
+  createCanvas(640, 480);
 
-  // 恢復最穩定的影像擷取方式，並明確禁用音訊
-  capture = createCapture(VIDEO, { audio: false });
-  capture.size(640, 480);
-  
-  // 隱藏預設的 HTML 影片元件，只在畫布上繪製
-  capture.hide();
+  video = createCapture(VIDEO);
+  video.size(640, 480);
+  video.hide();
 
-  // 初始化 faceMesh 模型 (修正語法：最新版第一個參數通常為空或設定物件)
-  faceMesh = ml5.faceMesh(() => {
-    isFaceModelReady = true;
-    modelReady();
-  });
+  // 開始偵測人體姿勢與手勢
+  bodyPose.detectStart(video, gotPoses);
+  handPose.detectStart(video, gotHands);
+}
 
-  // 開始持續偵測臉部
-  faceMesh.detectStart(capture, (results) => {
-    faces = results;
-  });
+function gotPoses(results) {
+  poses = results;
+}
+
+function gotHands(results) {
+  hands = results;
+  // 如果偵測到手，計算手指數量並更換耳環
+  if (hands.length > 0) {
+    let count = countFingers(hands[0]);
+    if (count >= 1 && count <= 5) {
+      currentEarring = earringImages[count - 1];
+    }
+  }
 }
 
 function draw() {
-  // 設定全螢幕背景顏色
-  background('#e7c6ff');
+  // 繪製攝影機畫面作為背景
+  image(video, 0, 0, width, height);
 
-  // 檢查攝影機是否已就緒
-  if (capture.width === 0) return;
+  // 遍歷所有偵測到的人體
+  if (poses.length > 0) {
+    for (let i = 0; i < poses.length; i++) {
+      let pose = poses[i];
 
-  // --- 計算相機影像的顯示尺寸和位置 ---
-  // 恢復為螢幕寬高 50% 的影像框，並置中顯示
-  let displayWidth = width * 0.5;
-  let displayHeight = height * 0.5;
-  let displayX = (width - displayWidth) / 2;
-  let displayY = (height - displayHeight) / 2;
+      // 設定圖片繪製模式為中心對齊
+      imageMode(CENTER);
 
-  // --- 繪製相機影像（左右翻轉）---
-  push();
-  translate(displayX + displayWidth, displayY);
-  scale(-1, 1); // 水平翻轉
-  image(capture, 0, 0, displayWidth, displayHeight);
-
-  // --- 除錯與狀態顯示 (幫助檢查為什麼沒東西) ---
-  pop(); // 暫時跳出翻轉座標系以繪製一般文字
-  fill(0);
-  noStroke();
-  textSize(16);
-  let status = isFaceModelReady ? `模型已就緒 | 偵測人臉數: ${faces.length}` : "模型載入中...";
-  text(status, 20, 20);
-  push(); // 回到翻轉座標系
-  translate(displayX + displayWidth, displayY);
-  scale(-1, 1);
-
-  // --- 在耳垂位置繪製耳環 ---
-  if (isFaceModelReady && faces.length > 0) {
-    let face = faces[0];
-    
-    // 取得左右耳垂附近的主要特徵點
-    let leftEar = face.keypoints[234];
-    let rightEar = face.keypoints[454];
-
-    if (leftEar && rightEar) {
-      // 計算縮放比例
-      let scaleX = displayWidth / capture.width;
-      let scaleY = displayHeight / capture.height;
-
-      // 取得當前選中的耳環圖片
-      let img = earringImages[currentEarringIndex];
-      if (img) {
-        // 根據影像框寬度計算耳環顯示大小
-        let imgW = displayWidth * 0.12; 
-        let imgH = img.height * (imgW / img.width);
-
-        // 繪製左右耳環 (微調 Y 座標偏移，讓它看起來是鉤在耳垂上)
-        image(img, leftEar.x * scaleX - imgW / 2, leftEar.y * scaleY - imgH / 5, imgW, imgH);
-        image(img, rightEar.x * scaleX - imgW / 2, rightEar.y * scaleY - imgH / 5, imgW, imgH);
+      // 繪製耳環於左耳與右耳
+      if (currentEarring) {
+        if (pose.left_ear && pose.left_ear.confidence > 0.1) {
+          image(currentEarring, pose.left_ear.x, pose.left_ear.y, 50, 50);
+        }
+        if (pose.right_ear && pose.right_ear.confidence > 0.1) {
+          image(currentEarring, pose.right_ear.x, pose.right_ear.y, 50, 50);
+        }
       }
+
+      // 將 imageMode 恢復預設，以免影響下一幀的背景繪製
+      imageMode(CORNER);
     }
   }
-
-  pop();
 }
 
-function windowResized() {
-  // 當視窗大小改變時，重新調整畫布大小
-  resizeCanvas(windowWidth, windowHeight);
-}
+// 計算伸出的手指數量的簡單邏輯
+function countFingers(hand) {
+  let count = 0;
+  let keypoints = hand.keypoints;
 
-function mousePressed() {
-  // 點擊滑鼠或觸控螢幕時，切換到下一款耳環
-  currentEarringIndex = (currentEarringIndex + 1) % earringImages.length;
+  // 拇指判定：根據手掌方向比較 X 座標 (簡化版)
+  if (hand.handedness === 'Right') {
+    if (keypoints[4].x < keypoints[3].x) count++;
+  } else {
+    if (keypoints[4].x > keypoints[3].x) count++;
+  }
+
+  // 食指、中指、無名指、小指判定：指尖 (Tip) Y 座標小於第二關節 (PIP) Y 座標即視為伸出
+  // 食指: 8 vs 6, 中指: 12 vs 10, 無名指: 16 vs 14, 小指: 20 vs 18
+  if (keypoints[8].y < keypoints[6].y) count++;
+  if (keypoints[12].y < keypoints[10].y) count++;
+  if (keypoints[16].y < keypoints[14].y) count++;
+  if (keypoints[20].y < keypoints[18].y) count++;
+
+  return count;
 }
