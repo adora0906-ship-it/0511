@@ -25,16 +25,10 @@ function setup() {
   // 建立全螢幕畫布
   createCanvas(windowWidth, windowHeight);
 
-  // 設定攝影機參數，強制使用前鏡頭 (facingMode: user)
-  let constraints = {
-    video: {
-      facingMode: "user",
-      width: 640,
-      height: 480
-    }
-  };
-  capture = createCapture(constraints);
-  capture.size(640, 480); 
+  // 恢復最穩定的影像擷取方式，並明確禁用音訊
+  capture = createCapture(VIDEO, { audio: false });
+  capture.size(640, 480);
+  
   // 隱藏預設的 HTML 影片元件，只在畫布上繪製
   capture.hide();
 
@@ -60,34 +54,22 @@ function setup() {
 }
 
 function draw() {
+  // 設定全螢幕背景顏色
   background('#e7c6ff');
 
   // 檢查攝影機是否已就緒
   if (capture.width === 0) return;
 
-  let w = width * 0.5;  // 影像寬度為畫布寬度的 50%
-  let h = height * 0.5; // 影像高度為畫布高度的 50%
-  let x = (width - w) / 2;  // 置中 X 座標
-  let y = (height - h) / 2; // 置中 Y 座標
-
-  // 繪製目前的狀態 (手機除錯用)
-  fill(0);
-  noStroke();
-  textSize(16);
-  textAlign(LEFT, TOP);
-  let statusTxt = `Faces: ${faces.length}, Hands: ${hands.length}`;
-  if (!isFaceModelReady || !isHandModelReady) statusTxt = "Loading AI Models...";
-  text(statusTxt, 10, 10);
-
-  // 偵測模型載入提示 (Debug 用)
+  // 如果模型還沒準備好，顯示載入文字
   if (!isFaceModelReady || !isHandModelReady) {
-    textAlign(CENTER);
-    textSize(20);
-    text("AI Models Loading...", width / 2, height / 2);
-    return; // 模型還沒好就先不畫後面的東西
+    fill(0);
+    textAlign(CENTER, CENTER);
+    textSize(32);
+    text("AI 模型載入中...", width / 2, height / 2);
+    return;
   }
 
-  // 手勢辨識邏輯：計算伸出的手指數量來切換耳環
+  // --- 手勢辨識邏輯：計算伸出的手指數量來切換耳環 ---
   if (hands && hands.length > 0) {
     let hand = hands[0];
     let count = 0;
@@ -107,49 +89,62 @@ function draw() {
     }
   }
 
-  push();
-  // 移動座標系到影像右側邊界並進行水平翻轉 (左右顛倒)
-  translate(x + w, y);
-  scale(-1, 1);
-  
-  // 繪製攝影機影像
-  image(capture, 0, 0, w, h);
+  // --- 計算相機影像的顯示尺寸和位置 ---
+  // 相機影像大小為全螢幕的 50%，並置中顯示
+  let displayWidth = width * 0.5;
+  let displayHeight = height * 0.5;
+  let displayX = (width - displayWidth) / 2;
+  let displayY = (height - displayHeight) / 2;
 
-  // 如果有偵測到臉部，繪製耳垂圓圈
+  // --- 繪製相機影像（左右翻轉）---
+  push();
+  translate(displayX + displayWidth, displayY);
+  scale(-1, 1); // 水平翻轉
+  image(capture, 0, 0, displayWidth, displayHeight);
+  pop();
+
+  // --- 如果有偵測到臉部，在耳垂上顯示黃色圓圈和耳環 ---
   if (faces && faces.length > 0) {
     let face = faces[0];
     
-    // 使用 capture.width/height 動態計算縮放，適應不同設備
-    let scaleX = w / capture.width;
-    let scaleY = h / capture.height;
+    // 計算縮放比例，將 faceMesh 的座標對應到實際顯示的影像位置
+    let scaleX = displayWidth / capture.width;
+    let scaleY = displayHeight / capture.height;
     
-    // 更精準的耳垂座標點 (MediaPipe 索引)
-    // 左耳垂: 234, 右耳垂: 454 (比 132/361 更靠邊緣)
+    // 耳垂座標點 (MediaPipe faceMesh 索引)
+    // 左耳垂: 234, 右耳垂: 454
     let leftEar = face.keypoints[234] || face.keypoints[132];
     let rightEar = face.keypoints[454] || face.keypoints[361];
+
+    // 因為影像是左右翻轉的，需要調整 x 座標
+    let leftEarX = displayX + (capture.width - leftEar.x) * scaleX;
+    let leftEarY = displayY + leftEar.y * scaleY;
+    let rightEarX = displayX + (capture.width - rightEar.x) * scaleX;
+    let rightEarY = displayY + rightEar.y * scaleY;
 
     // 取得當前手勢對應的耳環圖片
     let earringImg = earringImages[currentEarringIndex];
     
-    // 檢查圖片是否成功載入 (防止寬度為 0 導致程式當機)
+    // 耳環大小（相對於顯示的影像大小）
+    let earringSize = displayWidth * 0.08;
+    
+    // 先繪製黃色圓圈
+    fill(255, 255, 0);
+    noStroke();
+    circle(leftEarX, leftEarY, 20);
+    circle(rightEarX, rightEarY, 20);
+
+    // 檢查圖片是否成功載入並繪製耳環
     if (earringImg && earringImg.width > 1) {
-      let imgW = 40; 
+      let imgW = earringSize;
       let imgH = earringImg.height * (imgW / earringImg.width);
       
       // 繪製左耳垂耳環
-      image(earringImg, leftEar.x * scaleX - imgW / 2, leftEar.y * scaleY - imgH / 5, imgW, imgH);
+      image(earringImg, leftEarX - imgW / 2, leftEarY - imgH / 5, imgW, imgH);
       // 繪製右耳垂耳環
-      image(earringImg, rightEar.x * scaleX - imgW / 2, rightEar.y * scaleY - imgH / 5, imgW, imgH);
-    } else {
-      // 如果圖片沒載入，畫黃色圓圈作為備案
-      fill(255, 255, 0);
-      noStroke();
-      circle(leftEar.x * scaleX, leftEar.y * scaleY, 15);
-      circle(rightEar.x * scaleX, rightEar.y * scaleY, 15);
+      image(earringImg, rightEarX - imgW / 2, rightEarY - imgH / 5, imgW, imgH);
     }
   }
-  
-  pop();
 }
 
 function windowResized() {
