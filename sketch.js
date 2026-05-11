@@ -72,12 +72,11 @@ function draw() {
   translate(displayX + displayWidth, displayY);
   scale(-1, 1);
 
-  // --- 繪製耳垂部分的黃色圓圈 ---
+  // --- 在耳垂位置繪製耳環 ---
   if (isFaceModelReady && faces.length > 0) {
     let face = faces[0];
     
     // 取得左右耳垂附近的主要特徵點
-    // 確保點位存在才繪製，防止 undefined 報錯
     let leftEar = face.keypoints[234];
     let rightEar = face.keypoints[454];
 
@@ -86,11 +85,17 @@ function draw() {
       let scaleX = displayWidth / capture.width;
       let scaleY = displayHeight / capture.height;
 
-      fill(255, 255, 0); 
-      noStroke();
+      // 取得當前選中的耳環圖片
+      let img = earringImages[currentEarringIndex];
+      if (img) {
+        // 根據影像框寬度計算耳環顯示大小
+        let imgW = displayWidth * 0.12; 
+        let imgH = img.height * (imgW / img.width);
 
-      circle(leftEar.x * scaleX, leftEar.y * scaleY, 15);
-      circle(rightEar.x * scaleX, rightEar.y * scaleY, 15);
+        // 繪製左右耳環 (微調 Y 座標偏移，讓它看起來是鉤在耳垂上)
+        image(img, leftEar.x * scaleX - imgW / 2, leftEar.y * scaleY - imgH / 5, imgW, imgH);
+        image(img, rightEar.x * scaleX - imgW / 2, rightEar.y * scaleY - imgH / 5, imgW, imgH);
+      }
     }
   }
 
@@ -100,4 +105,9 @@ function draw() {
 function windowResized() {
   // 當視窗大小改變時，重新調整畫布大小
   resizeCanvas(windowWidth, windowHeight);
+}
+
+function mousePressed() {
+  // 點擊滑鼠或觸控螢幕時，切換到下一款耳環
+  currentEarringIndex = (currentEarringIndex + 1) % earringImages.length;
 }
