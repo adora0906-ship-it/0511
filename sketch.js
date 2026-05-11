@@ -1,15 +1,22 @@
 let capture;
 let faceMesh;
+let handPose;
 let faces = [];
-let earringImage; // 新增一個變數來儲存耳環圖片
+let hands = [];
+let earringImages = [];
+let currentEarringIndex = 0; // 預設顯示第一款
 
 function modelReady() {
   console.log("Model Ready!");
 }
 
 function preload() {
-  // 在 setup() 之前載入圖片
-  earringImage = loadImage('pic/acc1_ring.png');
+  // 預載 5 種耳環圖片
+  earringImages[0] = loadImage('pic/acc1_ring.png');
+  earringImages[1] = loadImage('pic/acc2_pearl.png');
+  earringImages[2] = loadImage('pic/acc3_tassel.png');
+  earringImages[3] = loadImage('pic/acc4_jade.png');
+  earringImages[4] = loadImage('pic/acc5_phoenix.png');
 }
 
 function setup() {
@@ -28,6 +35,12 @@ function setup() {
   faceMesh.detectStart(capture, (results) => {
     faces = results;
   });
+
+  // 初始化 handPose 模型進行手勢辨識
+  handPose = ml5.handPose(modelReady);
+  handPose.detectStart(capture, (results) => {
+    hands = results;
+  });
 }
 
 function draw() {
@@ -38,6 +51,26 @@ function draw() {
   let h = height * 0.5; // 影像高度為畫布高度的 50%
   let x = (width - w) / 2;  // 置中 X 座標
   let y = (height - h) / 2; // 置中 Y 座標
+
+  // 手勢辨識邏輯：計算伸出的手指數量來切換耳環
+  if (hands && hands.length > 0) {
+    let hand = hands[0];
+    let count = 0;
+    
+    // 檢查四指 (食指 8, 中指 12, 無名指 16, 小指 20) 是否高於各自的關節 (6, 10, 14, 18)
+    let tips = [8, 12, 16, 20];
+    let joints = [6, 10, 14, 18];
+    for (let i = 0; i < 4; i++) {
+      if (hand.keypoints[tips[i]].y < hand.keypoints[joints[i]].y) count++;
+    }
+    // 檢查大拇指 (索引 4 vs 3)
+    if (hand.keypoints[4].y < hand.keypoints[3].y) count++;
+
+    // 如果手指數量在 1~5 之間，更新目前的耳環索引
+    if (count >= 1 && count <= 5) {
+      currentEarringIndex = count - 1;
+    }
+  }
 
   push();
   // 移動座標系到影像右側邊界並進行水平翻轉 (左右顛倒)
@@ -55,18 +88,15 @@ function draw() {
     let scaleX = w / 640;
     let scaleY = h / 480;
 
-    // 設定耳環圖片的顯示尺寸，可以根據需要調整
-    let earringSize = 30; 
-    let earringWidth = earringSize;
-    let earringHeight = earringSize;
+    // 取得當前手勢對應的耳環圖片
+    let earringImg = earringImages[currentEarringIndex];
+    let imgW = 40; 
+    let imgH = earringImg.height * (imgW / earringImg.width);
     
-    // 繪製左耳垂的耳環圖片
-    // 調整圖片位置使其中心對齊耳垂點
-    image(earringImage, face.keypoints[132].x * scaleX - earringWidth / 2, face.keypoints[132].y * scaleY - earringHeight / 2, earringWidth, earringHeight);
-    
-    // 繪製右耳垂的耳環圖片
-    // 調整圖片位置使其中心對齊耳垂點
-    image(earringImage, face.keypoints[361].x * scaleX - earringWidth / 2, face.keypoints[361].y * scaleY - earringHeight / 2, earringWidth, earringHeight);
+    // 繪製左耳垂耳環 (中心點對齊耳垂點，並稍微向上偏移讓掛鉤位置正確)
+    image(earringImg, face.keypoints[132].x * scaleX - imgW / 2, face.keypoints[132].y * scaleY - imgH / 5, imgW, imgH);
+    // 繪製右耳垂耳環
+    image(earringImg, face.keypoints[361].x * scaleX - imgW / 2, face.keypoints[361].y * scaleY - imgH / 5, imgW, imgH);
   }
   
   pop();
