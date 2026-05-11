@@ -90,9 +90,10 @@ function draw() {
   }
 
   // --- 計算相機影像的顯示尺寸和位置 ---
-  // 相機影像大小為全螢幕的 50%，並置中顯示
-  let displayWidth = width * 0.5;
-  let displayHeight = height * 0.5;
+  // 讓相機影像自動縮放以填滿螢幕，並保持比例置中 (類似 object-fit: cover)
+  let scaleFactor = max(width / capture.width, height / capture.height);
+  let displayWidth = capture.width * scaleFactor;
+  let displayHeight = capture.height * scaleFactor;
   let displayX = (width - displayWidth) / 2;
   let displayY = (height - displayHeight) / 2;
 
