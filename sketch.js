@@ -1,9 +1,15 @@
 let capture;
 let faceMesh;
 let faces = [];
+let earringImage; // 新增一個變數來儲存耳環圖片
 
 function modelReady() {
   console.log("Model Ready!");
+}
+
+function preload() {
+  // 在 setup() 之前載入圖片
+  earringImage = loadImage('pic/acc1_ring.png');
 }
 
 function setup() {
@@ -15,10 +21,11 @@ function setup() {
   // 隱藏預設的 HTML 影片元件，只在畫布上繪製
   capture.hide();
 
-  // 初始化 faceMesh 模型 (使用 ml5 v1.x 最新 API)
+  // 初始化 faceMesh 模型
   faceMesh = ml5.faceMesh(modelReady);
+  
   // 開始對攝影機影像進行連續偵測
-  faceMesh.detectStart(capture, results => {
+  faceMesh.detectStart(capture, (results) => {
     faces = results;
   });
 }
@@ -41,19 +48,25 @@ function draw() {
   image(capture, 0, 0, w, h);
 
   // 如果有偵測到臉部，繪製耳垂圓圈
-  if (faces.length > 0) {
+  if (faces && faces.length > 0) {
     let face = faces[0];
-    // 取得耳垂的特徵點 (FaceMesh 索引: 左耳約 132, 右耳約 361)
-    // 這裡的座標是相對於攝影機原始大小，需要縮放至畫布上的顯示大小
-    let scaleX = w / capture.width;
-    let scaleY = h / capture.height;
-
-    fill(255, 255, 0); // 黃色
-    noStroke();
     
-    // 繪製左耳垂與右耳垂
-    circle(face.keypoints[132].x * scaleX, face.keypoints[132].y * scaleY, 15);
-    circle(face.keypoints[361].x * scaleX, face.keypoints[361].y * scaleY, 15);
+    // 計算攝影機畫面到畫布顯示大小的縮放比例
+    let scaleX = w / 640;
+    let scaleY = h / 480;
+
+    // 設定耳環圖片的顯示尺寸，可以根據需要調整
+    let earringSize = 30; 
+    let earringWidth = earringSize;
+    let earringHeight = earringSize;
+    
+    // 繪製左耳垂的耳環圖片
+    // 調整圖片位置使其中心對齊耳垂點
+    image(earringImage, face.keypoints[132].x * scaleX - earringWidth / 2, face.keypoints[132].y * scaleY - earringHeight / 2, earringWidth, earringHeight);
+    
+    // 繪製右耳垂的耳環圖片
+    // 調整圖片位置使其中心對齊耳垂點
+    image(earringImage, face.keypoints[361].x * scaleX - earringWidth / 2, face.keypoints[361].y * scaleY - earringHeight / 2, earringWidth, earringHeight);
   }
   
   pop();
