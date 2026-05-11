@@ -15,10 +15,10 @@ function setup() {
   // 隱藏預設的 HTML 影片元件，只在畫布上繪製
   capture.hide();
 
-  // 初始化 faceMesh 模型
-  faceMesh = ml5.faceMesh(capture, modelReady);
-  // 當偵測到臉部時，更新 faces 變數
-  faceMesh.on("predict", results => {
+  // 初始化 faceMesh 模型 (使用 ml5 v1.x 最新 API)
+  faceMesh = ml5.faceMesh(modelReady);
+  // 開始對攝影機影像進行連續偵測
+  faceMesh.detectStart(capture, results => {
     faces = results;
   });
 }
@@ -52,8 +52,8 @@ function draw() {
     noStroke();
     
     // 繪製左耳垂與右耳垂
-    circle(face.scaledMesh[132][0] * scaleX, face.scaledMesh[132][1] * scaleY, 15);
-    circle(face.scaledMesh[361][0] * scaleX, face.scaledMesh[361][1] * scaleY, 15);
+    circle(face.keypoints[132].x * scaleX, face.keypoints[132].y * scaleY, 15);
+    circle(face.keypoints[361].x * scaleX, face.keypoints[361].y * scaleY, 15);
   }
   
   pop();
